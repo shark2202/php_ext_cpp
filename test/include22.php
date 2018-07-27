@@ -1,3 +1,3 @@
 <?php 
 
-return [1,2,3];
+return $abc = [1,2,3];

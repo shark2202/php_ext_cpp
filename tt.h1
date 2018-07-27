@@ -1,0 +1,10 @@
+#include <string>
+using namespace std;
+
+namespace Mytest {
+/**
+ * @param
+ * @return
+ */
+bool myinclude(string file);
+}

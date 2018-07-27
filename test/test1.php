@@ -29,5 +29,17 @@ var_dump($c->e2(function(){
 var_dump([1,2]);
 $c->callPhpFn([1,2]);
 
-$d = include22("include22.php");
-var_dump($d);
+// $d = include22("include22.php");
+// var_dump($d);
+// var_dump($abc);
+
+// var_dump(trComplex\getConf());
+echo "StaticCnew";
+$o1 = new StaticCnew();
+$o2 = new StaticCnew();
+var_dump($o1->getSS());
+
+var_dump($o2->setSS("111",222));
+var_dump($o2->setSS("333",444));
+
+var_dump($o1->getSS());
