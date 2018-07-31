@@ -43,3 +43,12 @@ var_dump($o2->setSS("111",222));
 var_dump($o2->setSS("333",444));
 
 var_dump($o1->getSS());
+
+// var_dump($o1->property1);
+// var_dump($o2->property1);
+// var_dump($o1->callBack1());
+// var_dump($o1->property1);
+// var_dump($o2->property1);
+
+$o1->property1 = function(){ echo "ok",PHP_EOL;};
+$o1->callBack1();
