@@ -285,6 +285,15 @@ public:
         return this;
     }
 
+    //读取回调函数进行执行的
+    void callBack1(){
+        Php::Value self(this);
+        //Php::Function self["property1"] = 100;
+        //从当前对象的属性上读取到匿名函数，然后执行的
+         Php::Value func = self["property1"];
+         func();
+    }
+
     Php::Value classtest(Php::Parameters &params){
 //        zend_string *strg;
 //
@@ -305,7 +314,8 @@ public:
     Php::Value add_new_func(Php::Parameters &params){
         Php::Function multiply_by_two([](Php::Parameters &params) -> Php::Value {
             auto fn = params[0];
-            Php::out << content << std::endl;
+            Php::out << "" << std::endl;
+
             params.erase(params.begin()+1);
             return Php::call(fn, params);
         });
@@ -391,6 +401,12 @@ extern "C" {
         Php::Class<StaticC> extClass2("StaticCnew");
         extClass2.method<&StaticC::getSS> ("getSS");
         extClass2.method<&StaticC::setSS> ("setSS");
+
+
+        extClass2.method<&StaticC::callBack1> ("callBack1");
+
+        extClass2.property("property1", "", Php::Public);
+
 
         myext.add(std::move(extClass2));
 
