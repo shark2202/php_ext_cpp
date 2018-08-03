@@ -1,8 +1,30 @@
 #include <phpcpp.h>
 #include <string>
 #include <iostream>
+
+//下面是socket的库
+#include <cstdio>
+#include <cstdlib>
+#include <cerrno>
+#include <cstring>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/time.h>
+
+#define BUFF_SIZE       1024    //buffer大小
+#define SELECT_TIMEOUT  5       //select的timeout seconds
+
 extern "C"
 {
+
 #include "php.h"
 #include "php_ini.h"
 #include "php_globals.h"
@@ -257,6 +279,244 @@ public:
     }
 };
 
+/**
+ * 创建一个server类的
+ */
+class Server : public Php::Base{
+
+private:
+    static std::map<std::string,Php::Value> _events;
+
+public:
+    /**
+     * [__construct description]
+     * @param  params [description]
+     * @return        [description]
+     */
+    Php::Value __construct(Php::Parameters &params){
+
+        return this;
+    }
+
+    /**
+     * [on description]
+     * @param  params [description]
+     * @return        [description]
+     */
+    Php::Value on(Php::Parameters &params){
+        return true;
+    }
+
+    Php::Value run(){
+        Php::Value self(this);
+        Php::Value onStart = self["onStart"];
+        Php::Value onConnect = self["onConnect"];
+        Php::Value onMessage = self["onMessage"];
+        Php::Value onClose = self["onClose"];
+
+        onStart();
+
+        int SERVPORT = self["port"];
+
+        int BACKLOG = 10;
+        //int MAXDATASIZE = 1000;
+        // #define SERVPORT 13000   // 服务器监听端口号
+        // #define BACKLOG 10  // 最大同时连接请求数
+        // #define MAXDATASIZE 1000
+        int sock_fd,client_fd;  // sock_fd：监听socket；client_fd：数据传输socket
+        int sin_size;
+        struct sockaddr_in my_addr; // 本机地址信息
+        struct sockaddr_in remote_addr; // 客户端地址信息
+     
+        if((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+            // perror("socket创建出错！");
+            Php::error << "socket创建出错！" << std::flush;
+            return false;
+        }
+     
+        long flag = 1;
+        int pid;
+        setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag));
+        //设置非阻塞模式的
+        int flags;
+        flags = fcntl(sock_fd,F_GETEL,0);
+        if(flags < 0){
+            Php::error << "fcntl出错！" << std::flush;
+            return false;
+        }
+        if(fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0){
+            Php::error << "fcntl出错2！" << std::flush;
+            return false;
+        }
+        Php::out << "设置非阻塞模式完成！"<< std::endl;
+
+        my_addr.sin_family=AF_INET;
+        my_addr.sin_port=htons(SERVPORT);
+        my_addr.sin_addr.s_addr = INADDR_ANY;
+        bzero(&(my_addr.sin_zero),8);
+        if(bind(sock_fd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) {
+            // perror("bind出错！");
+            Php::error << "bind出错！" << std::flush;
+            return false;
+        }
+        if(listen(sock_fd, BACKLOG) == -1) {
+            // perror("listen出错！");
+            Php::error << "listen出错！" << std::flush;
+            return false;
+        }
+        Php::out << "listen完成！"<< std::endl;
+
+    //创建并初始化select需要的参数(这里仅监视read)，并把sock添加到fd_set中
+    fd_set readfds;
+    fd_set readfds_bak; //backup for readfds(由于每次select之后会更新readfds，因此需要backup)
+    struct timeval timeout;
+    int maxfd;
+    maxfd = sock_fd;
+    FD_ZERO(&readfds);
+    FD_ZERO(&readfds_bak);
+    FD_SET(sock_fd, &readfds_bak);
+
+    //循环接受client请求
+    int new_sock;
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_len;
+    char client_ip_str[INET_ADDRSTRLEN];
+    int res;
+    int i;
+    char buffer[BUFF_SIZE];
+    int recv_size;
+
+    // int i;
+    int new_maxfd;
+    //int flags;
+
+    while (true) {
+
+        //注意select之后readfds和timeout的值都会被修改，因此每次都进行重置
+        readfds = readfds_bak;
+        //maxfd = updateMaxfd(readfds, maxfd);        //更新maxfd
+
+        i = 0;
+        new_maxfd = 0;
+
+        for (i = 0; i <= maxfd; i++) {
+            if (FD_ISSET(i, &readfds) && i > new_maxfd) {
+                new_maxfd = i;
+            }
+        }
+        maxfd = new_maxfd;
+
+        timeout.tv_sec = SELECT_TIMEOUT;
+        timeout.tv_usec = 0;
+        printf("selecting maxfd=%d\n", maxfd);
+
+        //select(这里没有设置writefds和errorfds，如有需要可以设置)
+        res = select(maxfd + 1, &readfds, NULL, NULL, &timeout);
+        if (res == -1) {
+            perror("select failed");
+            exit(EXIT_FAILURE);
+        } else if (res == 0) {
+            fprintf(stderr, "no socket ready for read within %d secs\n", SELECT_TIMEOUT);
+            continue;
+        }
+
+        //检查每个socket，并进行读(如果是sock则accept)
+        for (i = 0; i <= maxfd; i++) {
+            if (!FD_ISSET(i, &readfds)) {
+                continue;
+            }
+            //可读的socket
+            if ( i == sock_fd) {
+                //当前是server的socket，不进行读写而是accept新连接
+                client_addr_len = sizeof(client_addr);
+                new_sock = accept(sock_fd, (struct sockaddr *) &client_addr, &client_addr_len);
+                if (new_sock == -1) {
+                    perror("accept failed");
+                    exit(EXIT_FAILURE);
+                }
+                if (!inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip_str, sizeof(client_ip_str))) {
+                    perror("inet_ntop failed");
+                    exit(EXIT_FAILURE);
+                }
+                printf("accept a client from: %s\n", client_ip_str);
+                //设置new_sock为non-blocking
+                //setSockNonBlock(new_sock);
+
+                //获取原来的设置，加上非阻塞的选项
+                flags = fcntl(new_sock, F_GETFL, 0);
+                if (flags < 0) {
+                    perror("fcntl(F_GETFL) failed");
+                    exit(EXIT_FAILURE);
+                }
+                if (fcntl(new_sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+                    perror("fcntl(F_SETFL) failed");
+                    exit(EXIT_FAILURE);
+                }
+                //把new_sock添加到select的侦听中
+                if (new_sock > maxfd) {
+                    maxfd = new_sock;
+                }
+                FD_SET(new_sock, &readfds_bak);
+            } else {
+                //当前是client连接的socket，可以写(read from client)
+                memset(buffer, 0, sizeof(buffer));
+                if ( (recv_size = recv(i, buffer, sizeof(buffer), 0)) == -1 ) {
+                    perror("recv failed");
+                    exit(EXIT_FAILURE);
+                }
+                printf("recved from new_sock=%d : %s(%d length string)\n", i, buffer, recv_size);
+                //立即将收到的内容写回去，并关闭连接
+                if ( send(i, buffer, recv_size, 0) == -1 ) {
+                    perror("send failed");
+                    exit(EXIT_FAILURE);
+                }
+                printf("send to new_sock=%d done\n", i);
+                if ( close(i) == -1 ) {
+                    perror("close failed");
+                    exit(EXIT_FAILURE);
+                }
+                printf("close new_sock=%d done\n", i);
+                //将当前的socket从select的侦听中移除
+                FD_CLR(i, &readfds_bak);
+            }
+        }
+    }
+        // while(true) {
+        //     sin_size = sizeof(struct sockaddr_in);
+        //     if((client_fd = accept(sock_fd, (struct sockaddr *)&remote_addr, (socklen_t*)&sin_size)) == -1) {
+        //         perror("accept出错");
+        //         Php::error << "accept出错" << std::flush;
+        //         continue;
+        //     }
+
+        //     onConnect();
+
+        //     printf("received a connection from %s:%u\n", inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
+        //     //Php::out << "regular output" << std::endl;
+        //     Php::out << inet_ntoa(remote_addr.sin_addr) << std::endl;
+        //     Php::out << ntohs(remote_addr.sin_port) << std::endl;
+
+        //     pid = fork();
+        //     if(pid < 0){
+        //         Php::error << "fork失败！" << std::flush;
+        //     }else if(pid == 0) {   // 子进程代码段
+        //         if(send(client_fd, "Hello, you are connected!\n", 26, 0) == -1) {
+        //             // perror("send出错！");
+        //             Php::error << "send出错！" << std::flush;
+        //         }
+        //         close(client_fd);
+
+        //         onClose();
+
+        //         return false;
+        //     }else{// 父进程的
+        //         close(client_fd);
+        //     }
+        // }
+        return true;
+    }
+};
+
 class StaticC : public Php::Base
 {
 public:
@@ -411,6 +671,19 @@ extern "C" {
         myext.add(std::move(extClass2));
 
         myext.add<add_new_func>("add_new_func");
+
+        Php::Class<Server> myTcpServer("myTcpServer");
+        myTcpServer.method<&Server::__construct>("__construct");
+        myTcpServer.method<&Server::run>("run");
+
+        myTcpServer.property("port", "13000", Php::Public);
+
+        myTcpServer.property("onStart", "", Php::Public);//启动的时候
+        myTcpServer.property("onConnect", "", Php::Public);//连接的时候
+        myTcpServer.property("onMessage", "", Php::Public);//消息的时候
+        myTcpServer.property("onClose", "", Php::Public);//关闭的时候
+
+        myext.add(std::move(myTcpServer));
         // return the extension
         return myext;
     }
