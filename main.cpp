@@ -339,7 +339,7 @@ public:
         setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag));
         //设置非阻塞模式的
         int flags;
-        flags = fcntl(sock_fd,F_GETEL,0);
+        flags = fcntl(sock_fd,F_GETFL,0);
         if(flags < 0){
             Php::error << "fcntl出错！" << std::flush;
             return false;
