@@ -92,7 +92,9 @@ LINKER				=	g++
 #	with a list of all flags that should be passed to the linker.
 #
 
-COMPILER_FLAGS		=	-Wall -c -O2 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
+# -g 增加调试信息
+# -O0 关闭优化的
+COMPILER_FLAGS		=	-Wall -g -c -O0 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
 LINKER_FLAGS		=	-shared 
 LINKER_DEPENDENCIES	=	-lphpcpp 
 

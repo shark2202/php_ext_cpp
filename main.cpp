@@ -309,6 +309,7 @@ public:
 
     Php::Value run(){
         Php::Value self(this);
+
         Php::Value onStart = self["onStart"];
         Php::Value onConnect = self["onConnect"];
         Php::Value onMessage = self["onMessage"];
@@ -323,6 +324,8 @@ public:
         // #define SERVPORT 13000   // 服务器监听端口号
         // #define BACKLOG 10  // 最大同时连接请求数
         // #define MAXDATASIZE 1000
+        
+
         int sock_fd,client_fd;  // sock_fd：监听socket；client_fd：数据传输socket
         int sin_size;
         struct sockaddr_in my_addr; // 本机地址信息
@@ -337,19 +340,24 @@ public:
         long flag = 1;
         int pid;
         setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag));
+
         //设置非阻塞模式的
         int flags;
+
+        //首先获取sock的模式
         flags = fcntl(sock_fd,F_GETFL,0);
         if(flags < 0){
             Php::error << "fcntl出错！" << std::flush;
             return false;
         }
+        //在原有的模式基础上添加非阻塞模式的
         if(fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0){
             Php::error << "fcntl出错2！" << std::flush;
             return false;
         }
         Php::out << "设置非阻塞模式完成！"<< std::endl;
 
+        //绑定地址的
         my_addr.sin_family=AF_INET;
         my_addr.sin_port=htons(SERVPORT);
         my_addr.sin_addr.s_addr = INADDR_ANY;
@@ -359,6 +367,8 @@ public:
             Php::error << "bind出错！" << std::flush;
             return false;
         }
+
+        //监听的
         if(listen(sock_fd, BACKLOG) == -1) {
             // perror("listen出错！");
             Php::error << "listen出错！" << std::flush;
@@ -471,13 +481,16 @@ public:
                     exit(EXIT_FAILURE);
                 }
                 printf("send to new_sock=%d done\n", i);
-                if ( close(i) == -1 ) {
-                    perror("close failed");
-                    exit(EXIT_FAILURE);
+
+                if(buffer == "closeConn"){
+                    if ( close(i) == -1 ) {
+                        perror("close failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    printf("close new_sock=%d done\n", i);
+                    //将当前的socket从select的侦听中移除
+                    FD_CLR(i, &readfds_bak);
                 }
-                printf("close new_sock=%d done\n", i);
-                //将当前的socket从select的侦听中移除
-                FD_CLR(i, &readfds_bak);
             }
         }
     }
@@ -599,10 +612,74 @@ public:
         return multiply_by_two;
     }
 
+//连接池的方案
+//
+//
+//
+class ObjectPool1 : public Php::Base{
+public:
+    /**
+     * 保存连接的
+     */
+    static std::map<std::string,Php::Value> _pool;
+    
+    /**
+     * [hashId description]
+     * @param  conf [description]
+     * @return      [description]
+     */
+    static std::string hashId(std::string conf){
+        Php::out << conf << "hashId" << std::endl;
+        return conf;
+    }
+
+    //从ini中获取配置进行连接的
+    void init_parse(){
+
+    }
+
+    /**
+     * [initObject description]
+     * @param  params [description]
+     * @return        [description]
+     */
+    void __construct(Php::Parameters &params){
+        std::string class_name = params[0];//类名称
+        Php::Object obj(params[0]);
+        _pool[hashId(class_name)] = obj;
+
+        Php::out << class_name << " __construct" << std::endl;
+    }
+
+    /**
+     * [getObject description]
+     * @return [description]
+     */
+    Php::Value getObject(Php::Parameters &params){
+        std::string class_name = params[0];//类名称
+        Php::Object obj = _pool[hashId(class_name)];
+
+        Php::out << class_name << " getObject"  << std::endl;
+        obj.call("init");
+
+        return obj;
+    }
+
+    void releaseObject(Php::Parameters &params){
+        std::string class_name = params[0];//类名称
+
+        Php::out << class_name << " releaseObject"  << std::endl;
+    }
+};
+
+
 //初始静态变量的
 int StaticC::objectCount = 0;
 std::vector<Php::Value> StaticC::extArr = {};//空数组的
 std::map<std::string,Php::Value> StaticC::extMap = {};//空map
+
+std::map<std::string,Php::Value> ObjectPool1::_pool = {};
+
 /**
  *  tell the compiler that the get_module is a pure C function
  */
@@ -684,6 +761,13 @@ extern "C" {
         myTcpServer.property("onClose", "", Php::Public);//关闭的时候
 
         myext.add(std::move(myTcpServer));
+
+        Php::Class<ObjectPool1> myObjectPool("ObjectPool1");
+        myObjectPool.method<&ObjectPool1::__construct>("__construct");
+        myObjectPool.method<&ObjectPool1::getObject>("getObject");
+        myObjectPool.method<&ObjectPool1::releaseObject>("releaseObject");
+
+        myext.add(std::move(myObjectPool));
         // return the extension
         return myext;
     }
