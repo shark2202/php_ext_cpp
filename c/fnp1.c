@@ -14,6 +14,20 @@ static struct MyStruct (*p)(struct MyStruct s, int a[*]) = NULL;
 //声明一个函数
 static void Test(void);
 
+//声明一个方法
+static struct MyStruct Func(struct MyStruct s, int a[]);
+
+//声明一个方法
+//参数是一个函数指针的
+static void callfn(struct MyStruct (*f1)(struct MyStruct s, int a[*]));
+
+//定义一个函数类型fffff
+typedef void(*fffff)(void);
+//不能使用下面的方法来定义一个函数类型
+//typedef void(*)(void) fffff2;
+
+//定义一个函数类型是否可以？？
+typedef void(f2)(void);
 /**
  * 不定参数的函数
  * @param n
@@ -43,6 +57,27 @@ int main(){
     //执行一个函数指针的
     (*pf)();
     
+    //定义一个函数指针
+    fffff pf1 = Test;
+    pf1();
+    
+    //fffff* pf2 = &pf1;
+    //*pf2();
+    
+    //定义了一个函数实体，和上面定义的函数指针还是有区别的
+    f2 pf3;
+    //pf3 = Test;
+    pf3();
+    
+    f2* pf4 = NULL;
+    pf4 = Test;
+    pf4();
+    
+    //指向指针的指针
+    f2** pf5 = NULL;
+    pf5 = &pf4;
+    (*pf5)();
+    
     int (*pFunc)(int, ...) = &Foo;
     
     int result = pFunc(2,10,20,30);
@@ -60,6 +95,8 @@ int main(){
         puts("NULL");
     }
     
+    struct MyStruct (*p1)(struct MyStruct s, int a[*]) = Func;
+    callfn(p1);
     
 }
 
@@ -87,6 +124,10 @@ static void Test(void){
  * @param f1
  * @param ...
  */
-static void callfn(static struct MyStruct (*f1)(struct MyStruct s, int a[*]),...){
-    
+static void callfn(struct MyStruct (*f1)(struct MyStruct s, int a[*])){
+    f1((struct MyStruct){.a = 12, .f = 10.5f},(int[]){10,2,3});
+}
+
+void pf3(void){
+    printf("pf3\n");
 }
