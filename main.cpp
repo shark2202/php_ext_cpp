@@ -735,6 +735,7 @@ public:
         return NULL;
     }
     
+    
     Php::Value getOnCall(Php::Parameters &params){
         if(params[0] == 1){
             return ObjCall::onCallFn1;
@@ -774,6 +775,10 @@ extern "C" {
             //StaticC::objectCount = 100;
             //StaticC::extArr.push_back(1);
             //StaticC::extMap["1"] = 100;
+            ObjCall::onCallFn1 = NULL;
+        });
+        
+        myext.onShutdown([](){
             ObjCall::onCallFn1 = NULL;
         });
 //
