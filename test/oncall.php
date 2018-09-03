@@ -18,8 +18,8 @@ $obj->onCall1(function(){
 var_dump($obj);
 
 var_dump($obj->getOnCall(1));
-//$obj_arg = [1,2,3];
+$obj_arg = [1,2,3];
 //var_dump($obj->callInC($obj_arg));
 
 
-//var_dump($obj->callInC1(1,2,3));
+var_dump($obj->callInC1($obj_arg));
