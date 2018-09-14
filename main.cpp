@@ -44,6 +44,10 @@ extern "C"
 #include "zend_inheritance.h"
 }
 
+//定义一个全部的变量
+Php::Value ClassFn1;
+//std::map<Php::Value,Php::Value> classMap1;
+
 // typedef void (*php_func)(INTERNAL_FUNCTION_PARAMETERS);
 
 // #include <string>
@@ -700,7 +704,8 @@ public:
     
     Php::Value onCall1(Php::Parameters &params){
         if(params.size() > 0){
-            ObjCall::onCallFn1 = params[0];
+            //ObjCall::onCallFn1 = params[0];
+            ClassFn1 = params[0];
             return true;
         }
         
@@ -708,13 +713,15 @@ public:
     }
     
     Php::Value callInC1(Php::Parameters &params){
-        if(ObjCall::onCallFn1){
+        if(ClassFn1){
             //Php::Array arg1;
             //arg1[0] = 1;
             //arg1[1] = 100;
 //            return arg1;
             //直接使用() 进行调用的
-            return ObjCall::onCallFn1(params);
+            //Php::Value fn1 = classMap1.find("ObjCall::onCall1");
+            Php::Value p1 = params;
+            return ClassFn1(p1);
             //return Php::call("")
         }
         
@@ -738,7 +745,7 @@ public:
     
     Php::Value getOnCall(Php::Parameters &params){
         if(params[0] == 1){
-            return ObjCall::onCallFn1;
+            return ClassFn1;
         }
         return this->onCallFn;
     }
@@ -752,6 +759,8 @@ std::map<std::string,Php::Value> StaticC::extMap = {};//空map
 std::map<std::string,Php::Value> ObjectPool1::_pool = {};
 
 Php::Value ObjCall::onCallFn1 = NULL;
+
+//std::map<Php::Value,Php::Value> classMap1 = {};
 /**
  *  tell the compiler that the get_module is a pure C function
  */
@@ -776,10 +785,15 @@ extern "C" {
             //StaticC::extArr.push_back(1);
             //StaticC::extMap["1"] = 100;
             ObjCall::onCallFn1 = NULL;
+            
+            ClassFn1 = NULL;
         });
         
         myext.onShutdown([](){
             ObjCall::onCallFn1 = NULL;
+            
+            //ClassFn1 = NULL;
+            
         });
 //
 //        Php::Namespace mynamespace("trComplex");
