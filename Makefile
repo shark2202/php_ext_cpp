@@ -17,6 +17,7 @@
 #	name of the library file (name.so) and the name of the config file (name.ini)
 #	are automatically generated
 #
+PHP_BIN = "/usr/local/php72/bin/php"
 PHP_CONFIG_BIN = "/usr/local/php72/bin/php-config"
 
 PHP_INCLUDE = `${PHP_CONFIG_BIN} --includes`
@@ -94,7 +95,9 @@ LINKER				=	g++
 
 # -g 增加调试信息
 # -O0 关闭优化的
+# 自己定义一个宏DEBUG标记DEBUG
 COMPILER_FLAGS		=	-Wall -g -c -O0 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
+#COMPILER_FLAGS		=	-Wall -DDEBUG -g -c -O0 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
 LINKER_FLAGS		=	-shared 
 LINKER_DEPENDENCIES	=	-lphpcpp 
 
@@ -107,9 +110,9 @@ LINKER_DEPENDENCIES	=	-lphpcpp
 #
 
 RM					=	rm -f
-CP					=	cp -f
+CP					=	sudo cp -f
 MKDIR				=	mkdir -p
-
+TEST 				= 	${PHP_BIN} -m
 
 #
 #	All source files are simply all *.cpp files found in the current directory
@@ -142,3 +145,8 @@ install:
 clean:
 						${RM} ${EXTENSION} ${OBJECTS}
 
+#test:
+#						`${TEST}`
+
+#首先执行清理，在执行编译的
+r:						clean all install

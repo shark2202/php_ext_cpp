@@ -19,6 +19,8 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#include "include/common.h"
+
 #define BUFF_SIZE       1024    //buffer大小
 #define SELECT_TIMEOUT  5       //select的timeout seconds
 
@@ -872,6 +874,8 @@ extern "C" {
         myObjCall.method<&ObjCall::getOnCall>("getOnCall");
         
         myext.add(std::move(myObjCall));
+
+        ASSERT(0,"err");
         
         return myext;
     }
