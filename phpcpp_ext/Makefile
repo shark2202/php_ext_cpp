@@ -37,7 +37,7 @@ NAME				=	mytest
 #	one for each extension. Use this variable to specify this directory.
 #
 
-INI_DIR				=	/usr/local/php/etc/
+INI_DIR				=	/usr/local/php/conf.d/
 
 
 #
