@@ -95,6 +95,41 @@ Php::Value returnfunction(Php::Parameters &p)
     return 0;
 }
 
+class CppClass: public Php::Base
+{
+private:
+    Php::Value _val;
+
+public:
+    Php::Value testCall(Php::Parameters &p)
+    {
+        return 100;
+    }
+
+    Php::Value setVal(){
+        //获取php空间的this对象
+        Php::Value self(this);
+
+        self["_val"] = 100;
+
+        Php::Value r1 = self.call("testcall123");//调用php的方法
+        
+        Php::call("var_dump",r1);
+
+        Php::call("var_dump",self.get("caller").isCallable());
+
+        Php::Function multiply_by_two([]() -> Php::Value {
+            Php::call("var_dump",100);
+            return 100;
+        });
+
+
+        Php::call(multiply_by_two);
+        //_val = 100;
+        return self;
+    }
+};
+
 PHPCPP_EXTENSION()
 {
     //使用静态变量常驻内存的
@@ -136,6 +171,17 @@ PHPCPP_EXTENSION()
     extension.add<fnInCpp>("fnInCpp");
 
     extension.add<multiply_by_two>("multiply_by_two");
+
+
+    //关联cpp中的类到php的类
+    Php::Class<CppClass> class1("CppTest\\CppClassReg");
+
+    class1.method<&CppClass::testCall>("testcall123");
+
+    class1.method<&CppClass::setVal>("setVal");
+
+    //注册到扩展中的
+    extension.add(std::move(class1));
 
     return extension;
 }

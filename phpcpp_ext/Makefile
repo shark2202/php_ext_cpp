@@ -145,8 +145,8 @@ install:
 clean:
 						${RM} ${EXTENSION} ${OBJECTS}
 
-#test:
-#						`${TEST}`
+test:
+						`${TEST}`
 
 #首先执行清理，在执行编译的
-r:						clean all install
+r:						clean all install test
