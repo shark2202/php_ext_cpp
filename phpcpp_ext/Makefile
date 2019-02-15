@@ -98,8 +98,15 @@ LINKER				=	g++
 # 自己定义一个宏DEBUG标记DEBUG
 COMPILER_FLAGS		=	-Wall -g -c -O0 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
 #COMPILER_FLAGS		=	-Wall -DDEBUG -g -c -O0 -std=c++11 -fpic ${PHP_INCLUDE} -I${PHP_INCLUDE_DIR} -o 
+
+#使用动态链接的
 LINKER_FLAGS		=	-shared 
 LINKER_DEPENDENCIES	=	-lphpcpp 
+
+#使用静态链接
+# 
+#LINKER_FLAGS		= 	-L /home/z/cpp/PHP-CPP-2.1.2/
+#LINKER_DEPENDENCIES	=	-Wl,-Bstatic -lphpcpp -Wl,-Bdynamic -lgcc_s
 
 
 #
