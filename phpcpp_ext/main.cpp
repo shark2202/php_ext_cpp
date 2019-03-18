@@ -13,6 +13,8 @@ ZEND_EXTERN_MODULE_GLOBALS(mytest);
 
 extern "C" {
     static int php_mycall_handler(zend_execute_data *execute_data);
+
+    static int php_myreturn_handler(zend_execute_data *execute_data);
 }
 void myFunction();
 
@@ -67,6 +69,46 @@ static int php_mycall_handler(zend_execute_data *execute_data){
     //继续执行的
 	// return ZEND_USER_OPCODE_DISPATCH;
 } 
+
+/**
+ * 函数返回的时候会触发的
+ */ 
+static int php_myreturn_handler(zend_execute_data *execute_data){
+
+    //zend_vm_handler_t zend = NULL;
+
+    //opline的内容
+	//const zend_op *opline = execute_data->opline;
+    //zend_execute_data *call = execute_data->call;
+	zend_function *fbc = execute_data->func;
+
+    if (fbc->common.scope == NULL) {
+        //方法的名称
+        zend_string *fname = fbc->common.function_name;
+        //zend_string *bar2 = zend_string_dup(fname,0);
+        //bar2 = zend_string_init(fname->val, fname->len, 0);
+
+        //Php::out << "php_myreturn_handler function name:" << fname->val << std::endl;
+        php_printf("php_myreturn_handler function name: %s \n", ZSTR_VAL(fname));
+
+        //zend_string_release(bar2);
+    }else{
+
+        zend_string *fname = fbc->common.function_name;
+        zend_class_entry *clazzname = fbc->common.scope;
+
+        //Php::out << "php_myreturn_handler class name:" << clazzname->name->val << ", method name:" << fname->val << std::endl;
+        php_printf("php_myreturn_handler class name: %s, method name: %s \n", ZSTR_VAL(clazzname->name),ZSTR_VAL(fname));
+    }
+
+	//if (zend) {
+		//return zend(execute_data);
+	//}
+
+    Php::out << "php_myreturn_handler" << std::endl;
+
+	return ZEND_USER_OPCODE_DISPATCH;
+}
 
 Php::Value mytest_disbaled(Php::Parameters &params){
     MYTEST_G(disable) = 0;
@@ -219,6 +261,9 @@ PHPCPP_EXTENSION()
     //使用静态变量常驻内存的
     static Php::Extension extension("mytest", "1.0");
 
+    //添加一个ini的配置信息,第三个参数是设置配置允许修改的返回
+    extension.add(Php::Ini("mytest.disable", 0, Php::Ini::Place::Perdir));
+
     /**
      * 注册一方法在方法调用之前和之后进行标记的
      */
@@ -272,16 +317,39 @@ PHPCPP_EXTENSION()
     // //注册到扩展中的
     // extension.add(std::move(class1));
 
+    //一个请求的开始
+    extension.onRequest([](){
+        int disabledIni = Php::ini_get("mytest.disable");
+        Php::out << "disabledIni:" << disabledIni << std::endl;
+        MYTEST_G(disable) = 0;
+        if(disabledIni){
+            MYTEST_G(disable) = 1;
+        }
+    });
+
+    //一个请求的结束
+    extension.onIdle( []() {
+        Php::out << "request end" << std::endl;
+    });
+
     //zend_set_user_opcode_handler(ZEND_DO_FCALL, LIGHT_DO_FCALL);
     //ZEND_DO_UCALL
     extension.onStartup([](){
 
         ZEND_INIT_MODULE_GLOBALS(mytest, php_mytest_init_globals, NULL);
 
+        int disabledIni = Php::ini_get("mytest.disable");
+        MYTEST_G(disable) = 0;
+        if(disabledIni){
+            MYTEST_G(disable) = 1;
+        }
+
         // zend_set_user_opcode_handler(ZEND_INCLUDE_OR_EVAL, php_taint_fcall_handler);
         //这个是把函数进行hook了
         zend_set_user_opcode_handler(ZEND_DO_UCALL, php_mycall_handler);
         zend_set_user_opcode_handler(ZEND_DO_FCALL, php_mycall_handler);
+
+        zend_set_user_opcode_handler(ZEND_RETURN, php_myreturn_handler);
 
         //这个要把方法进行hook
         //zend_set_user_opcode_handler(ZEND_INIT_FCALL, php_mycall_handler);
