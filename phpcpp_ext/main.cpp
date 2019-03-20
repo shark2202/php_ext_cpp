@@ -6,6 +6,20 @@
 //注册模块全局变量
 #include "./init.h"
 
+#include "./backtrace7.c"
+
+/**
+ * 2019-03-19
+ * by Will
+ * 做一个amp的扩展，完成
+ * (a)函数的调用的时间的耗时的追踪
+ * (b)完成一个请求的耗时的追踪
+ * (c)完成打点的开始和结束的耗时的追踪
+ * 扩展到curl和mysql，mongodb，redis等等扩展的监控
+ * 
+ * 
+ */
+
 /**
  * 使用的地方要声明这个
  */ 
@@ -74,32 +88,92 @@ static int php_mycall_handler(zend_execute_data *execute_data){
  * 函数返回的时候会触发的
  */ 
 static int php_myreturn_handler(zend_execute_data *execute_data){
+    //return 1;
 
     //zend_vm_handler_t zend = NULL;
 
     //opline的内容
 	//const zend_op *opline = execute_data->opline;
     //zend_execute_data *call = execute_data->call;
-	zend_function *fbc = execute_data->func;
+    zend_execute_data *call;
 
-    if (fbc->common.scope == NULL) {
-        //方法的名称
-        zend_string *fname = fbc->common.function_name;
-        //zend_string *bar2 = zend_string_dup(fname,0);
-        //bar2 = zend_string_init(fname->val, fname->len, 0);
+    char *call_type;
+    const char *function_name;
 
-        //Php::out << "php_myreturn_handler function name:" << fname->val << std::endl;
-        php_printf("php_myreturn_handler function name: %s \n", ZSTR_VAL(fname));
+    //const char *function_name;
 
-        //zend_string_release(bar2);
+    call = EG(current_execute_data);
+
+    zend_string *class_name = NULL;
+	zend_function *fbc = NULL;
+    zend_object *object;
+
+    object = Z_OBJ(call->This);
+
+    if(call->func){
+        fbc = call->func;
+
+			function_name = (fbc->common.scope && fbc->common.scope->trait_aliases) ?
+				ZSTR_VAL(zend_resolve_method_name((object ? object->ce : fbc->common.scope), fbc)) :
+				(fbc->common.function_name ? ZSTR_VAL(fbc->common.function_name) : NULL);
+
+
+			if (object) {
+				if (fbc->common.scope) {
+					class_name = fbc->common.scope->name;
+				} else if (object->handlers->get_class_name == std_object_handlers.get_class_name) {
+					class_name = object->ce->name;
+				} else {
+					class_name = object->handlers->get_class_name(object);
+				}
+
+				call_type = "->";
+            //如果不是对象的实例方法，那么可能是类方法或者是命名空间的方法
+			} else if (fbc->common.scope) {
+				class_name = fbc->common.scope->name;
+				call_type = "::";
+			} else {
+				class_name = NULL;
+				call_type = NULL;
+			}
     }else{
+        fbc = NULL;
+        function_name = NULL;
 
-        zend_string *fname = fbc->common.function_name;
-        zend_class_entry *clazzname = fbc->common.scope;
-
-        //Php::out << "php_myreturn_handler class name:" << clazzname->name->val << ", method name:" << fname->val << std::endl;
-        php_printf("php_myreturn_handler class name: %s, method name: %s \n", ZSTR_VAL(clazzname->name),ZSTR_VAL(fname));
+        class_name = NULL;
+		call_type = NULL;
     }
+
+
+    if(class_name){//
+        php_printf("class_name:%s\n",ZSTR_VAL(class_name));
+    }
+
+    if(call_type){//
+        php_printf("call_type:%s\n",call_type);
+    }
+
+    if(function_name){//
+        php_printf("function_name:%s\n",function_name);
+    }
+    // if (fbc->common.scope == NULL) {
+    //     //方法的名称
+    //     zend_string *fname = fbc->common.function_name;
+    //     //zend_string *bar2 = zend_string_dup(fname,0);
+    //     //bar2 = zend_string_init(fname->val, fname->len, 0);
+
+    //     //Php::out << "php_myreturn_handler function name:" << fname->val << std::endl;
+    //     php_printf("php_myreturn_handler function name: %s \n", ZSTR_VAL(fname));
+
+    //     //zend_string_release(bar2);
+    // }else{
+
+    //     zend_string *fname = fbc->common.function_name;
+    //     zend_class_entry *clazzname = fbc->common.scope;
+
+    //     //Php::out << "php_myreturn_handler class name:" << clazzname->name->val << ", method name:" << fname->val << std::endl;
+    //     php_printf("php_myreturn_handler class name: %s, method name: %s \n", ZSTR_VAL(clazzname->name),ZSTR_VAL(fname));
+    // }
 
 	//if (zend) {
 		//return zend(execute_data);
@@ -108,6 +182,28 @@ static int php_myreturn_handler(zend_execute_data *execute_data){
     Php::out << "php_myreturn_handler" << std::endl;
 
 	return ZEND_USER_OPCODE_DISPATCH;
+}
+
+/**
+ * 在扩展中使用多线程要怎么使用? 
+ */
+
+Php::Value my_bt(void){
+        smart_str trace_str = {0};
+        //smart_str_appends(&trace_str, "Hello, you are using PHP version \0 5555");
+        append_backtrace(&trace_str TSRMLS_CC);
+        smart_str_0(&trace_str);
+
+        if((trace_str.s) && (ZSTR_LEN(trace_str.s) > 0)){
+            php_printf("bt: %s \n", ZSTR_VAL(trace_str.s));
+        }else{
+            php_printf("bt: %s \n","empty");
+        }   
+        //Php::out << "bt: " << trace_str.s->val << std::endl;
+
+        smart_str_free(&trace_str);
+
+        return true;
 }
 
 Php::Value mytest_disbaled(Php::Parameters &params){
@@ -259,7 +355,7 @@ Php::Value PhpStrace(Php::Parameters &p){
 PHPCPP_EXTENSION()
 {
     //使用静态变量常驻内存的
-    static Php::Extension extension("mytest", "1.0");
+    static Php::Extension extension(EXTERSION_NAME, EXTERSION_VERSION);
 
     //添加一个ini的配置信息,第三个参数是设置配置允许修改的返回
     extension.add(Php::Ini("mytest.disable", 0, Php::Ini::Place::Perdir));
@@ -268,6 +364,8 @@ PHPCPP_EXTENSION()
      * 注册一方法在方法调用之前和之后进行标记的
      */
     extension.add<mytest_disbaled>("mytest_disbaled"); 
+
+    extension.add<my_bt>("mybacktrace");
 
     //cpp中定义的方法的名称，后面是php中定义的方法的名称
     //extension.add<myFunction>("newFunction");
@@ -329,6 +427,19 @@ PHPCPP_EXTENSION()
 
     //一个请求的结束
     extension.onIdle( []() {
+        my_bt();
+
+        //自己实例化一个smart_str的对象
+        smart_str my_str = {0};
+        smart_str_appends(&my_str, "Hello, you are using PHP version \0 5555");
+
+        smart_str_appends(&my_str, " PHP functions");
+        smart_str_0(&my_str);
+        
+        //php_printf("retstr=%s\n", ZSTR_VAL(my_str.s));
+        smart_str_free(&my_str);
+
+
         Php::out << "request end" << std::endl;
     });
 
@@ -349,7 +460,7 @@ PHPCPP_EXTENSION()
         zend_set_user_opcode_handler(ZEND_DO_UCALL, php_mycall_handler);
         zend_set_user_opcode_handler(ZEND_DO_FCALL, php_mycall_handler);
 
-        zend_set_user_opcode_handler(ZEND_RETURN, php_myreturn_handler);
+        zend_set_user_opcode_handler(ZEND_RETURN, php_myreturn_handler); 
 
         //这个要把方法进行hook
         //zend_set_user_opcode_handler(ZEND_INIT_FCALL, php_mycall_handler);

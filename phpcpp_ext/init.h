@@ -1,19 +1,26 @@
 #pragma once
 
+#define EXTERSION_NAME "mytest"
+#define EXTERSION_VERSION "0.01"
+
+/* 实际上是自定义了一个结构体 */
 ZEND_BEGIN_MODULE_GLOBALS(mytest)
     // std::map<std::string,std::strng> str2str;
     zend_bool   disable;
 ZEND_END_MODULE_GLOBALS(mytest)
 
 /**
- *  And now we're going to define a macro. This also is a uncommon architecture 
- *  from PHP to get access to a variable from the structure above.
+ *  下面是自定义的
  */
 #ifdef ZTS
-#define MYTEST_G(v) TSRMG(mytest_globals_id, phpcpp_globals *, v)
+#define MYTEST_G(v) TSRMG(mytest_globals_id, zend_mytest_globals *, v)
 #else
 #define MYTEST_G(v) (mytest_globals.v)
 #endif
+
+//ZEND_MODULE_GLOBALS_ACCESSOR 改成用zend提供的接口来处理
+//#define MYTEST_G(v) ZEND_MODULE_GLOBALS_ACCESSOR(mytest,v)
+
 
 /**
  *  We're almost there, we now need to declare an instance of the
