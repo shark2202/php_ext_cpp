@@ -1,5 +1,5 @@
 #include <phpcpp.h>
-
+#include <iostream>
 
 /**
  * 一个简单的c++方法的
@@ -17,10 +17,10 @@ Php::Value example_function(Php::Parameters &params)
 /**
  * 另外一个重载的方法example_function
  */
-/*void example_function()
+void example_function()
 {
      Php::out << "example output" << std::endl;
-}*/
+}
 
 Php::Value run_test(Php::Parameters &params)
 {
@@ -66,11 +66,14 @@ Php::Value run_test(Php::Parameters &params)
     return result;
 }
 
+//Php::Value (*callback)(Php::Parameters &parameters) = example_function;
 /**
  *  Switch to C context, because the Zend engine expects get get_module()
  *  to have a C style function signature
  */
 extern "C" {
+
+
     /**
      *  Startup function that is automatically called by the Zend engine
      *  when PHP starts, and that should return the extension details
@@ -92,10 +95,12 @@ extern "C" {
  */
 //ByVal(const char *name, const char *classname, bool nullable = false, bool required = true);
 
-        //void  (*callback)(Parameters &parameters);
-        //callback = example_function;
+        //这个是指定的是函数指针
+        //Php::Value (&callback)(Php::Parameters &parameters) = example_function;
+
+
         //把cpp的方法和php的方法关联起来的
-        extension.add<example_function>("php_example_function",{
+        extension.add<(void (*)(void))example_function>("php_example_function",{
             /*设置方法有两个参数的*/
             Php::ByVal("a", Php::Type::Numeric),
             Php::ByVal("b", Php::Type::Numeric),
