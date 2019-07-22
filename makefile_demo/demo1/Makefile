@@ -3,6 +3,11 @@
 PHP_BIN = "/usr/local/php/bin/php"
 PHP_CONFIG_BIN = "/usr/local/php/bin/php-config"
 
+
+PHP_BIN = "/usr/local/php7/bin/php"
+PHP_CONFIG_BIN = "/usr/local/php7/bin/php-config"
+
+
 ###``这个是执行shell命令的,返回的是shell的输出的
 PHP_INCLUDE = `${PHP_CONFIG_BIN} --includes`
 PHP_LIBS = `${PHP_CONFIG_BIN} --libs`

@@ -92,10 +92,10 @@ extern "C" {
  */
 //ByVal(const char *name, const char *classname, bool nullable = false, bool required = true);
 
-        void  (*callback)(Parameters &parameters);
-        callback = example_function;
+        //void  (*callback)(Parameters &parameters);
+        //callback = example_function;
         //把cpp的方法和php的方法关联起来的
-        extension.add<callback>("php_example_function",{
+        extension.add<example_function>("php_example_function",{
             /*设置方法有两个参数的*/
             Php::ByVal("a", Php::Type::Numeric),
             Php::ByVal("b", Php::Type::Numeric),
